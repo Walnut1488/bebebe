@@ -1,24 +1,23 @@
 """
 Эмулятор командной строки UNIX-подобной ОС.
-Этап 3: подключение VFS.
+Этап 4: основные команды.
 
-К Этапу 2 (конфигурация) добавлено:
-  - загрузка VFS из CSV-файла (см. vfs.py) в память при старте;
-  - отладочный вывод результата загрузки (количество папок/файлов,
-    дерево VFS) или понятной ошибки, если файл VFS битый/не найден.
+К Этапу 3 (VFS) добавлено:
+  - настоящая логика ls и cd (вместо заглушек с Этапа 1), работающая
+    поверх дерева VFS, загруженного в память;
+  - новые команды date (текущее время реальной ОС) и find (поиск по
+    имени внутри VFS).
 
-Команды ls и cd на этом этапе ПО-ПРЕЖНЕМУ заглушки (как на Этапе 1) —
-их настоящая логика поверх VFS появится на Этапе 4. Здесь важно только
-то, что VFS успешно читается в память и ничего не падает на ошибках.
+Вся логика самих команд вынесена в commands.py — здесь только REPL,
+разбор параметров и загрузка VFS.
 """
 
 import argparse
 import sys
 
+import commands
 import vfs
 
-
-# ---------- То же самое, что было на Этапе 1 ----------
 
 def parse_input(line: str) -> tuple[str, list[str]]:
     """Разбить введённую строку на команду и список аргументов."""
@@ -29,28 +28,20 @@ def parse_input(line: str) -> tuple[str, list[str]]:
     return command, args
 
 
-def cmd_ls(args: list[str]) -> None:
-    print(f"ls: аргументы = {args}")
-
-
-def cmd_cd(args: list[str]) -> None:
-    print(f"cd: аргументы = {args}")
-
-
 COMMANDS = {
-    "ls": cmd_ls,
-    "cd": cmd_cd,
+    "ls": commands.cmd_ls,
+    "cd": commands.cmd_cd,
+    "date": commands.cmd_date,
+    "find": commands.cmd_find,
 }
 
 
-# ---------- Новое на Этапе 2 ----------
-
-def execute_line(line: str) -> bool:
+def execute_line(line: str, state: commands.ShellState) -> bool:
     """Выполнить одну строку ввода.
 
     Возвращает True, если строка выполнена без ошибки (или была пустой),
-    и False, если команда не найдена — это и есть "ошибка" для остановки
-    стартового скрипта.
+    и False при ошибке (неизвестная команда или ошибка самой команды) —
+    это и есть "ошибка" для остановки стартового скрипта.
     """
     command, args = parse_input(line)
 
@@ -65,11 +56,10 @@ def execute_line(line: str) -> bool:
         print(f"{command}: команда не найдена")
         return False
 
-    handler(args)
-    return True
+    return handler(args, state)
 
 
-def run_script(path: str, prompt: str) -> None:
+def run_script(path: str, prompt: str, state: commands.ShellState) -> None:
     """Прочитать стартовый скрипт и выполнить его команды по очереди.
 
     Каждая строка сначала печатается вместе с приглашением (имитация
@@ -86,13 +76,13 @@ def run_script(path: str, prompt: str) -> None:
     for raw_line in lines:
         line = raw_line.rstrip("\n")
         print(f"{prompt}> {line}")          # имитация ввода пользователя
-        ok = execute_line(line)              # выполнение + вывод результата
+        ok = execute_line(line, state)       # выполнение + вывод результата
         if not ok:
             print("Стартовый скрипт остановлен из-за ошибки.")
             break
 
 
-def run_repl(prompt: str) -> None:
+def run_repl(prompt: str, state: commands.ShellState) -> None:
     """Обычный интерактивный цикл REPL (как на Этапе 1)."""
     while True:
         try:
@@ -100,7 +90,7 @@ def run_repl(prompt: str) -> None:
         except EOFError:
             print()
             break
-        execute_line(line)
+        execute_line(line, state)
 
 
 def parse_args() -> argparse.Namespace:
@@ -158,14 +148,15 @@ def main() -> None:
     args = parse_args()
     print_debug_info(args)
 
-    vfs_root = None
+    state = commands.ShellState()
     if args.vfs_path:
-        vfs_root = load_vfs_or_none(args.vfs_path)
+        state.vfs_root = load_vfs_or_none(args.vfs_path)
+        state.reset_cwd()
 
     if args.script:
-        run_script(args.script, args.prompt)
+        run_script(args.script, args.prompt, state)
 
-    run_repl(args.prompt)
+    run_repl(args.prompt, state)
 
 
 if __name__ == "__main__":

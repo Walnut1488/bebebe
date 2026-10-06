@@ -137,6 +137,43 @@ def count_entries(node: VFSNode) -> tuple[int, int]:
     return dirs, files
 
 
+def resolve(stack: list, path: str) -> list:
+    """Разобрать путь (абсолютный или относительный) и вернуть новый стек.
+
+    stack — список узлов от корня до текущей директории (stack[0] — корень,
+    stack[-1] — текущая директория). Поддерживает "." (остаться на месте)
+    и ".." (подняться на уровень выше, но не выше корня).
+
+    Бросает VFSError, если какой-то элемент пути не найден, либо если
+    промежуточный элемент пути — не папка.
+    """
+    new_stack = [stack[0]] if path.startswith("/") else list(stack)
+
+    for part in path.split("/"):
+        if part in ("", "."):
+            continue
+        if part == "..":
+            if len(new_stack) > 1:
+                new_stack.pop()
+            continue
+        current = new_stack[-1]
+        if not current.is_dir:
+            raise VFSError(f"'{current.name}' не является директорией")
+        child = current.children.get(part)
+        if child is None:
+            raise VFSError(f"путь не найден: {part}")
+        new_stack.append(child)
+
+    return new_stack
+
+
+def stack_to_path(stack: list) -> str:
+    """Собрать строковый путь вида /a/b/c из стека узлов."""
+    if len(stack) == 1:
+        return "/"
+    return "/" + "/".join(node.name for node in stack[1:])
+
+
 def render_tree(node: VFSNode, prefix: str = "") -> str:
     """Построить текстовое дерево VFS (для отладочного вывода)."""
     lines = []
