@@ -1,0 +1,3 @@
+ls
+foobar
+cd /tmp
