@@ -1,0 +1,15 @@
+ls
+cd docs
+ls
+cd images
+ls
+cd icons
+ls
+cd ..
+cd ..
+cd ..
+ls
+date
+find / -name *.png
+find . -name readme.txt
+cd /no_such_dir
