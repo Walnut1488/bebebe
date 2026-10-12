@@ -1,0 +1,11 @@
+ls /docs
+touch /docs/new.txt
+ls /docs
+cp /docs/readme.txt /docs/readme_copy.txt
+ls /docs
+cp /docs/images /docs/images_copy
+find /docs/images_copy -name *.png
+cp /docs/readme.txt /docs/images
+ls /docs/images
+touch /docs/images/icons/star.png
+cp /docs/nope.txt /docs/x.txt
